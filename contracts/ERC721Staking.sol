@@ -208,6 +208,7 @@ contract ERC721Staking is ERC721Holder, ReentrancyGuard, Ownable {
   function addRewardAmount(
     uint256 _amount
   ) external onlyOwner updateReward(address(0)) {
+    require(_amount > 0, "Staking: Amount must be greater than 0");
     require(
       block.timestamp < periodFinish,
       "Staking: Rewards period must be ongoing to add more rewards"
