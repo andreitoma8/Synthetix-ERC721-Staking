@@ -15,7 +15,7 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 contract ERC721Staking is ERC721Holder, ReentrancyGuard, Ownable {
   using SafeERC20 for IERC20;
 
-  IERC20 public rewardsToken;
+  IERC20 public rewardToken;
   IERC721 public nftCollection;
 
   uint256 public periodFinish;
@@ -31,10 +31,10 @@ contract ERC721Staking is ERC721Holder, ReentrancyGuard, Ownable {
   mapping(address => uint256[]) private tokensStaked;
 
   /// @param _nftCollection the address of the ERC721 Contract
-  /// @param _rewardsToken the address of the ERC20 token used for rewards
-  constructor(address _nftCollection, address _rewardsToken) {
+  /// @param _rewardToken the address of the ERC20 token used for rewards
+  constructor(address _nftCollection, address _rewardToken) {
     nftCollection = IERC721(_nftCollection);
-    rewardsToken = IERC20(_rewardsToken);
+    rewardToken = IERC20(_rewardToken);
   }
 
   /// @notice functon called by the users to Stake NFTs
@@ -95,7 +95,7 @@ contract ERC721Staking is ERC721Holder, ReentrancyGuard, Ownable {
     if (reward > 0) {
       rewards[msg.sender] = 0;
 
-      rewardsToken.safeTransfer(msg.sender, reward);
+      rewardToken.safeTransfer(msg.sender, reward);
 
       emit RewardPaid(msg.sender, reward);
     }
@@ -136,6 +136,8 @@ contract ERC721Staking is ERC721Holder, ReentrancyGuard, Ownable {
     uint256 _amount,
     uint256 _duration
   ) external onlyOwner {
+    require(_amount > 0, "Staking: Amount must be greater than 0");
+    require(_duration > 0, "Staking: Duration must be greater than 0");
     require(
       block.timestamp > periodFinish,
       "Staking: Previous rewards period must be complete before changing the duration for the new period"
@@ -147,7 +149,7 @@ contract ERC721Staking is ERC721Holder, ReentrancyGuard, Ownable {
 
     rewardRate = _amount / rewardsDuration;
 
-    uint256 balance = rewardsToken.balanceOf(address(this));
+    uint256 balance = rewardToken.balanceOf(address(this));
     require(
       rewardRate <= balance / rewardsDuration,
       "Staking: Provided reward too high"
@@ -215,7 +217,7 @@ contract ERC721Staking is ERC721Holder, ReentrancyGuard, Ownable {
     uint256 leftover = remaining * rewardRate;
     rewardRate = (_amount + leftover) / remaining;
 
-    uint256 balance = rewardsToken.balanceOf(address(this));
+    uint256 balance = rewardToken.balanceOf(address(this));
     require(
       rewardRate <= balance / remaining,
       "Staking: Provided reward too high"
