@@ -19,8 +19,11 @@ describe("ERC721Staking", () => {
   let bob: SignerWithAddress;
   let carol: SignerWithAddress;
 
-  const rewardsAmount = ethers.utils.parseEther("1000");
+  const rewardsAmount = ethers.utils.parseEther("100");
   const rewardsDuration = 60 * 60 * 24 * 7; // 1 week
+
+  // 0.001 token amount error margin for rewards calculations (due to rounding errors and blockchain time manipulation)
+  const rewardsErrorMargin = ethers.utils.parseEther("0.001");
 
   before(async () => {
     [deployer, alice, bob, carol] = await ethers.getSigners();
@@ -306,6 +309,165 @@ describe("ERC721Staking", () => {
         [],
         0,
       ]);
+    });
+  });
+
+  describe.only("Rewards", () => {
+    beforeEach(async () => {
+
+      await nftCollection.mint(alice.address, 1);
+      await nftCollection
+        .connect(alice)
+        .setApprovalForAll(stakingContract.address, true);
+    });
+
+    it("should claim rewards correctly for one total staker", async () => {
+      await stakingContract
+      .connect(alice)
+      .stake(await nftCollection.tokensOfOwner(alice.address));
+
+      await stakingContract.startStakingPeriod(rewardsAmount, rewardsDuration);
+
+      await ethers.provider.send("evm_increaseTime", [rewardsDuration + 1]);
+      await ethers.provider.send("evm_mine", []);
+
+      const aliceStakeInfo = await stakingContract.userStakeInfo(alice.address);
+      const aliceStakedTokens = aliceStakeInfo[0];
+      const aliceRewards = aliceStakeInfo[1];
+
+      await expect(stakingContract.connect(alice).claimRewards())
+        .to.emit(stakingContract, "RewardPaid")
+        .withArgs(alice.address, aliceRewards);
+
+      expect(await stakingContract.userStakeInfo(alice.address)).to.deep.equal([
+        aliceStakedTokens,
+        0,
+      ]);
+    });
+
+    it("should calculate rewards correctly", async () => {
+      await stakingContract
+        .connect(alice)
+        .stake(await nftCollection.tokensOfOwner(alice.address));
+        
+      await stakingContract.startStakingPeriod(rewardsAmount, rewardsDuration);
+
+      await ethers.provider.send("evm_increaseTime", [rewardsDuration / 2]);
+      await ethers.provider.send("evm_mine", []);
+
+      const rewardsForDuration = await stakingContract.getRewardForDuration();
+
+      const aliceStakeInfo = await stakingContract.userStakeInfo(alice.address);
+      const aliceRewards = aliceStakeInfo[1];
+
+      expect(aliceRewards).to.be.within(rewardsForDuration.sub(rewardsErrorMargin).div(2), rewardsForDuration.add(rewardsErrorMargin).div(2));
+    });
+
+    it("should calculate rewards correctly for multiple stakers", async () => {
+      await nftCollection.mint(bob.address, 2);
+      await nftCollection.connect(bob).setApprovalForAll(stakingContract.address, true);
+
+      // Alice stakes 1 token for the entire rewards duration
+      await stakingContract
+        .connect(alice)
+        .stake(await nftCollection.tokensOfOwner(alice.address));
+
+      // Bob stakes 2 tokens for the entire rewards duration
+      await stakingContract
+        .connect(bob)
+        .stake(await nftCollection.tokensOfOwner(bob.address));
+
+      await stakingContract.startStakingPeriod(rewardsAmount, rewardsDuration);
+
+      await ethers.provider.send("evm_increaseTime", [rewardsDuration]);
+      await ethers.provider.send("evm_mine", []);
+
+      const rewardsForDuration = await stakingContract.getRewardForDuration();
+
+      const aliceStakeInfo = await stakingContract.userStakeInfo(alice.address);
+      const aliceRewards = aliceStakeInfo[1];
+
+      const bobStakeInfo = await stakingContract.userStakeInfo(bob.address);
+      const bobRewards = bobStakeInfo[1];
+      
+      expect(aliceRewards).to.be.within(rewardsForDuration.sub(rewardsErrorMargin).div(3), rewardsForDuration.add(rewardsErrorMargin).div(3));
+      expect(bobRewards).to.be.within(rewardsForDuration.sub(rewardsErrorMargin).mul(2).div(3), rewardsForDuration.add(rewardsErrorMargin).mul(2).div(3));
+    });
+
+    it("should calculate rewards correctly for multiple stakers with different stake durations", async () => {
+      await nftCollection.mint(bob.address, 2);
+      await nftCollection.connect(bob).setApprovalForAll(stakingContract.address, true);
+
+      await nftCollection.mint(carol.address, 3);
+      await nftCollection.connect(carol).setApprovalForAll(stakingContract.address, true);
+
+      const tokensOfAlice = await nftCollection.tokensOfOwner(alice.address);
+      const tokensOfBob = await nftCollection.tokensOfOwner(bob.address);
+      const tokensOfCarol = await nftCollection.tokensOfOwner(carol.address);
+
+      // Dividing the staking period into 4 windows
+
+      // Alice stakes 1 token => Alice gets all of rewards in this window (1/4 of total rewards)
+      await stakingContract
+        .connect(alice)
+        .stake(tokensOfAlice);
+        
+      await stakingContract.startStakingPeriod(rewardsAmount, rewardsDuration);
+      const rewardsForDuration = await stakingContract.getRewardForDuration();
+
+      await ethers.provider.send("evm_increaseTime", [rewardsDuration / 4]);
+      await ethers.provider.send("evm_mine", []);
+
+      // Bob stakes 2 tokens => Bob 2/3 of rewards in this window (2/3 of 1/4 of total rewards)
+      // Alice still has 1 token staked => Alice gets 1/3 of rewards in this window (1/3 of 1/4 of total rewards)
+      await stakingContract
+        .connect(bob)
+        .stake(tokensOfBob);
+
+      await ethers.provider.send("evm_increaseTime", [rewardsDuration / 4]);
+
+      // Carol stakes 2 tokens and Alice unstakes 1 token
+      // Carol gets 1/2 of rewards in this window (1/2 of 1/4 of total rewards)
+      // Alice gets no more rewards since she withdrew her token
+      await stakingContract
+        .connect(carol)
+        .stake(tokensOfCarol.slice(0, 2));
+      await stakingContract
+        .connect(alice)
+        .withdraw(tokensOfAlice);
+
+      await ethers.provider.send("evm_increaseTime", [rewardsDuration / 4]);
+      await ethers.provider.send("evm_mine", []);
+
+      // Bob unstakes 2 tokens and Carol stakes 1 token
+      // Carol gets all of the rewards in this window (1/4 of total rewards)
+      await stakingContract
+        .connect(bob)
+        .withdraw(tokensOfBob);
+      await stakingContract
+        .connect(carol)
+        .stake(tokensOfCarol.slice(-1));
+
+      await ethers.provider.send("evm_increaseTime", [rewardsDuration / 4]);
+      await ethers.provider.send("evm_mine", []);
+
+      const aliceStakeInfo = await stakingContract.userStakeInfo(alice.address);
+      const aliceRewards = aliceStakeInfo[1];
+
+      const bobStakeInfo = await stakingContract.userStakeInfo(bob.address);
+      const bobRewards = bobStakeInfo[1];
+
+      const carolStakeInfo = await stakingContract.userStakeInfo(carol.address);
+      const carolRewards = carolStakeInfo[1];
+
+      // Alice should have received 33.33% of the total rewards
+      expect(aliceRewards).to.be.within(rewardsForDuration.div(3).sub(rewardsErrorMargin), rewardsForDuration.div(3).add(rewardsErrorMargin));
+
+      // Bob should have received 29.16% of the total rewards
+      expect(bobRewards).to.be.within(rewardsForDuration.div(6).add(rewardsForDuration.div(8)).sub(rewardsErrorMargin), rewardsForDuration.div(6).add(rewardsForDuration.div(8)).add(rewardsErrorMargin));
+
+      // Carol should have received 37.50% of the total rewards
+      expect(carolRewards).to.be.within(rewardsForDuration.div(8).add(rewardsForDuration).div(4).sub(rewardsErrorMargin), rewardsForDuration.div(8).add(rewardsForDuration.div(4)).add(rewardsErrorMargin));
     });
   });
 });
