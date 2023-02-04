@@ -312,7 +312,7 @@ describe("ERC721Staking", () => {
     });
   });
 
-  describe.only("Rewards", () => {
+  describe("Rewards", () => {
     beforeEach(async () => {
 
       await nftCollection.mint(alice.address, 1);
@@ -351,6 +351,8 @@ describe("ERC721Staking", () => {
         .stake(await nftCollection.tokensOfOwner(alice.address));
         
       await stakingContract.startStakingPeriod(rewardsAmount, rewardsDuration);
+
+      expect(await stakingContract.getRewardPerToken()).to.equal((await stakingContract.rewardRate()).div(await stakingContract.totalStakedSupply()));
 
       await ethers.provider.send("evm_increaseTime", [rewardsDuration / 2]);
       await ethers.provider.send("evm_mine", []);
