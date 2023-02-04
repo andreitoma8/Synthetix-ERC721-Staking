@@ -40,18 +40,12 @@ contract ERC721Staking is ERC721Holder, ReentrancyGuard, Ownable {
     /// @notice functon called by the users to Stake NFTs
     /// @param tokenIds array of Token IDs of the NFTs to be staked
     /// @dev the Token IDs have to be prevoiusly approved for transfer in the ERC721 contract with the address of this contract
-    function stake(
-        uint256[] memory tokenIds
-    ) external updateReward(msg.sender) {
+    function stake(uint256[] memory tokenIds) external updateReward(msg.sender) {
         require(tokenIds.length != 0, "Staking: No tokenIds provided");
 
         uint256 amount = tokenIds.length;
         for (uint256 i = 0; i < amount; i += 1) {
-            nftCollection.safeTransferFrom(
-                msg.sender,
-                address(this),
-                tokenIds[i]
-            );
+            nftCollection.safeTransferFrom(msg.sender, address(this), tokenIds[i]);
 
             stakedAssets[tokenIds[i]] = msg.sender;
             tokensStaked[msg.sender].push(tokenIds[i]);
@@ -63,32 +57,21 @@ contract ERC721Staking is ERC721Holder, ReentrancyGuard, Ownable {
 
     /// @notice function called by the user to Withdraw NFTs from staking
     /// @param tokenIds array of Token IDs of the NFTs to be withdrawn
-    function withdraw(
-        uint256[] memory tokenIds
-    ) public nonReentrant updateReward(msg.sender) {
+    function withdraw(uint256[] memory tokenIds) public nonReentrant updateReward(msg.sender) {
         require(tokenIds.length != 0, "Staking: No tokenIds provided");
 
         uint256 amount = tokenIds.length;
         for (uint256 i = 0; i < amount; i += 1) {
-            require(
-                stakedAssets[tokenIds[i]] == msg.sender,
-                "Staking: Not the staker of the token"
-            );
+            require(stakedAssets[tokenIds[i]] == msg.sender, "Staking: Not the staker of the token");
 
-            nftCollection.safeTransferFrom(
-                address(this),
-                msg.sender,
-                tokenIds[i]
-            );
+            nftCollection.safeTransferFrom(address(this), msg.sender, tokenIds[i]);
 
             stakedAssets[tokenIds[i]] = address(0);
 
             uint256 length = tokensStaked[msg.sender].length;
             for (uint256 j; j < length; ++j) {
                 if (tokensStaked[msg.sender][j] == tokenIds[i]) {
-                    tokensStaked[msg.sender][j] = tokensStaked[msg.sender][
-                        length - 1
-                    ];
+                    tokensStaked[msg.sender][j] = tokensStaked[msg.sender][length - 1];
                     tokensStaked[msg.sender].pop();
                     break;
                 }
@@ -121,9 +104,7 @@ contract ERC721Staking is ERC721Holder, ReentrancyGuard, Ownable {
     /// @param _user the address of the user to get informations for
     /// @return _tokensStaked an array of NFT Token IDs that are staked by the user
     /// @return _availableRewards the rewards accumulated by the user
-    function userStakeInfo(
-        address _user
-    )
+    function userStakeInfo(address _user)
         public
         view
         returns (uint256[] memory _tokensStaked, uint256 _availableRewards)
@@ -134,11 +115,7 @@ contract ERC721Staking is ERC721Holder, ReentrancyGuard, Ownable {
 
     /// @notice getter function to get the reward per second for staking one NFT
     /// @return _rewardPerToken the amount of token per second rewarded for staking one NFT
-    function getRewardPerToken()
-        external
-        view
-        returns (uint256 _rewardPerToken)
-    {
+    function getRewardPerToken() external view returns (uint256 _rewardPerToken) {
         return rewardRate / totalStakedSupply;
     }
 
@@ -146,10 +123,7 @@ contract ERC721Staking is ERC721Holder, ReentrancyGuard, Ownable {
     /// @param _amount the amount of Reward Tokens to be distributed
     /// @param _duration the duration in with the rewards will be distributed, in seconds
     /// @dev  the Staking Contract have to already own enough Rewards Tokens to distribute all the rewards, so make sure to send all the tokens to the contract before calling this function
-    function startStakingPeriod(
-        uint256 _amount,
-        uint256 _duration
-    ) external onlyOwner {
+    function startStakingPeriod(uint256 _amount, uint256 _duration) external onlyOwner {
         require(_amount > 0, "Staking: Amount must be greater than 0");
         require(_duration > 0, "Staking: Duration must be greater than 0");
         require(
@@ -164,10 +138,7 @@ contract ERC721Staking is ERC721Holder, ReentrancyGuard, Ownable {
         rewardRate = _amount / rewardsDuration;
 
         uint256 balance = rewardToken.balanceOf(address(this));
-        require(
-            rewardRate <= balance / rewardsDuration,
-            "Staking: Provided reward too high"
-        );
+        require(rewardRate <= balance / rewardsDuration, "Staking: Provided reward too high");
 
         lastUpdateTime = block.timestamp;
         periodFinish = block.timestamp + rewardsDuration;
@@ -176,11 +147,7 @@ contract ERC721Staking is ERC721Holder, ReentrancyGuard, Ownable {
     }
 
     /// @return _lastRewardsApplicable the last time the rewards were applicable, returns block.timestamp if the rewards period is not ended
-    function lastTimeRewardApplicable()
-        public
-        view
-        returns (uint256 _lastRewardsApplicable)
-    {
+    function lastTimeRewardApplicable() public view returns (uint256 _lastRewardsApplicable) {
         return block.timestamp < periodFinish ? block.timestamp : periodFinish;
     }
 
@@ -189,55 +156,36 @@ contract ERC721Staking is ERC721Holder, ReentrancyGuard, Ownable {
         if (totalStakedSupply == 0) {
             return rewardPerTokenStored;
         }
-        return
-            rewardPerTokenStored +
-            (((lastTimeRewardApplicable() - lastUpdateTime) *
-                rewardRate *
-                1e18) / totalStakedSupply);
+        return rewardPerTokenStored
+            + (((lastTimeRewardApplicable() - lastUpdateTime) * rewardRate * 1e18) / totalStakedSupply);
     }
 
     /// @notice used to calculate the earned rewards for a user
     /// @param _user the address of the user to calculate available rewards for
     /// @return _rewards the amount of tokens available as rewards for the passed address
-    function calculateRewards(
-        address _user
-    ) public view returns (uint256 _rewards) {
+    function calculateRewards(address _user) public view returns (uint256 _rewards) {
         return
-            ((tokensStaked[_user].length *
-                (rewardPerToken() - userRewardPerTokenPaid[_user])) / 1e18) +
-            rewards[_user];
+            ((tokensStaked[_user].length * (rewardPerToken() - userRewardPerTokenPaid[_user])) / 1e18) + rewards[_user];
     }
 
     /// @return _distributedTokens the total amount of ERC20 Tokens distributed as rewards for the set staking period
-    function getRewardForDuration()
-        external
-        view
-        returns (uint256 _distributedTokens)
-    {
+    function getRewardForDuration() external view returns (uint256 _distributedTokens) {
         return rewardRate * rewardsDuration;
     }
 
     /// @notice fuction used by the Owner to add rewards to be distributed in the current staking period. Rewards can be added multiple times in the same staking period; this will increase the rewards rate for the active period.
     /// @param _amount the amount of tokens to be added to the rewards pool
     /// @dev the Staking Contract have to already own enough Rewards Tokens to distribute all the rewards, so make sure to send all the tokens to the contract before calling this function
-    function addRewardAmount(
-        uint256 _amount
-    ) external onlyOwner updateReward(address(0)) {
+    function addRewardAmount(uint256 _amount) external onlyOwner updateReward(address(0)) {
         require(_amount > 0, "Staking: Amount must be greater than 0");
-        require(
-            block.timestamp < periodFinish,
-            "Staking: Rewards period must be ongoing to add more rewards"
-        );
+        require(block.timestamp < periodFinish, "Staking: Rewards period must be ongoing to add more rewards");
 
         uint256 remaining = periodFinish - block.timestamp;
         uint256 leftover = remaining * rewardRate;
         rewardRate = (_amount + leftover) / remaining;
 
         uint256 balance = rewardToken.balanceOf(address(this));
-        require(
-            rewardRate <= balance / remaining,
-            "Staking: Provided reward too high"
-        );
+        require(rewardRate <= balance / remaining, "Staking: Provided reward too high");
 
         lastUpdateTime = block.timestamp;
 
