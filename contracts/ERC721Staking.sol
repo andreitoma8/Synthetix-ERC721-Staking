@@ -29,6 +29,7 @@ contract ERC721Staking is ERC721Holder, ReentrancyGuard, Ownable {
     mapping(address => uint256) private rewards;
     mapping(uint256 => address) public stakedAssets;
     mapping(address => uint256[]) private tokensStaked;
+    mapping(uint256 => uint256) public tokenIdToIndex;
 
     /// @param _nftCollection the address of the ERC721 Contract
     /// @param _rewardToken the address of the ERC20 token used for rewards
@@ -49,6 +50,7 @@ contract ERC721Staking is ERC721Holder, ReentrancyGuard, Ownable {
 
             stakedAssets[tokenIds[i]] = msg.sender;
             tokensStaked[msg.sender].push(tokenIds[i]);
+            tokenIdToIndex[tokenIds[i]] = tokensStaked[msg.sender].length - 1;
         }
         totalStakedSupply += amount;
 
@@ -68,14 +70,16 @@ contract ERC721Staking is ERC721Holder, ReentrancyGuard, Ownable {
 
             stakedAssets[tokenIds[i]] = address(0);
 
-            uint256 length = tokensStaked[msg.sender].length;
-            for (uint256 j; j < length; ++j) {
-                if (tokensStaked[msg.sender][j] == tokenIds[i]) {
-                    tokensStaked[msg.sender][j] = tokensStaked[msg.sender][length - 1];
-                    tokensStaked[msg.sender].pop();
-                    break;
-                }
+            uint256[] storage userTokens = tokensStaked[msg.sender];
+
+            uint256 index = tokenIdToIndex[tokenIds[i]];
+            uint256 lastTokenIdIndex = userTokens.length - 1;
+            if (index != lastTokenIdIndex) {
+                uint256 lastTokenId = userTokens[lastTokenIdIndex];
+                userTokens[index] = lastTokenId;
+                tokenIdToIndex[lastTokenId] = index;
             }
+            userTokens.pop();
         }
         totalStakedSupply -= amount;
 
