@@ -10,7 +10,8 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 
 /// @author Andrei Toma
 /// @title ERC721 NFT Staking Contract
-/// @notice Staking Contract that uses the Synthetix Staking model to distribute ERC20 token rewards in a dynamic way, proportionally based on the amount of ERC721 tokens staked by each staker at any given time.
+/// @notice Staking Contract that uses the Synthetix Staking model to distribute ERC20 token rewards in a dynamic way,
+/// proportionally based on the amount of ERC721 tokens staked by each staker at any given time.
 
 contract ERC721Staking is ERC721Holder, ReentrancyGuard, Ownable {
     using SafeERC20 for IERC20;
@@ -40,7 +41,8 @@ contract ERC721Staking is ERC721Holder, ReentrancyGuard, Ownable {
 
     /// @notice functon called by the users to Stake NFTs
     /// @param tokenIds array of Token IDs of the NFTs to be staked
-    /// @dev the Token IDs have to be prevoiusly approved for transfer in the ERC721 contract with the address of this contract
+    /// @dev the Token IDs have to be prevoiusly approved for transfer in the
+    /// ERC721 contract with the address of this contract
     function stake(uint256[] memory tokenIds) external updateReward(msg.sender) {
         require(tokenIds.length != 0, "Staking: No tokenIds provided");
 
@@ -123,10 +125,12 @@ contract ERC721Staking is ERC721Holder, ReentrancyGuard, Ownable {
         return rewardRate / totalStakedSupply;
     }
 
-    /// @notice function for the Owner of the Contract to start a Staking period and set the amount of ERC20 Tokens to be distributed as rewards in said period
+    /// @notice function for the Owner of the Contract to start a Staking period and set the
+    /// amount of ERC20 Tokens to be distributed as rewards in said period
     /// @param _amount the amount of Reward Tokens to be distributed
     /// @param _duration the duration in with the rewards will be distributed, in seconds
-    /// @dev  the Staking Contract have to already own enough Rewards Tokens to distribute all the rewards, so make sure to send all the tokens to the contract before calling this function
+    /// @dev  the Staking Contract have to already own enough Rewards Tokens to distribute all the rewards,
+    /// so make sure to send all the tokens to the contract before calling this function
     function startStakingPeriod(uint256 _amount, uint256 _duration) external onlyOwner {
         require(_amount > 0, "Staking: Amount must be greater than 0");
         require(_duration > 0, "Staking: Duration must be greater than 0");
@@ -150,12 +154,14 @@ contract ERC721Staking is ERC721Holder, ReentrancyGuard, Ownable {
         emit RewardAdded(_amount);
     }
 
-    /// @return _lastRewardsApplicable the last time the rewards were applicable, returns block.timestamp if the rewards period is not ended
+    /// @return _lastRewardsApplicable the last time the rewards were applicable,
+    /// returns block.timestamp if the rewards period is not ended
     function lastTimeRewardApplicable() public view returns (uint256 _lastRewardsApplicable) {
         return block.timestamp < periodFinish ? block.timestamp : periodFinish;
     }
 
-    /// @notice calculates the rewards per token for the current time whenever a new deposit/withdraw is made to keep track of the correct token distribution between stakers
+    /// @notice calculates the rewards per token for the current time whenever a new deposit/withdraw
+    /// is made to keep track of the correct token distribution between stakers
     function rewardPerToken() public view returns (uint256) {
         if (totalStakedSupply == 0) {
             return rewardPerTokenStored;
@@ -175,25 +181,6 @@ contract ERC721Staking is ERC721Holder, ReentrancyGuard, Ownable {
     /// @return _distributedTokens the total amount of ERC20 Tokens distributed as rewards for the set staking period
     function getRewardForDuration() external view returns (uint256 _distributedTokens) {
         return rewardRate * rewardsDuration;
-    }
-
-    /// @notice fuction used by the Owner to add rewards to be distributed in the current staking period. Rewards can be added multiple times in the same staking period; this will increase the rewards rate for the active period.
-    /// @param _amount the amount of tokens to be added to the rewards pool
-    /// @dev the Staking Contract have to already own enough Rewards Tokens to distribute all the rewards, so make sure to send all the tokens to the contract before calling this function
-    function addRewardAmount(uint256 _amount) external onlyOwner updateReward(address(0)) {
-        require(_amount > 0, "Staking: Amount must be greater than 0");
-        require(block.timestamp < periodFinish, "Staking: Rewards period must be ongoing to add more rewards");
-
-        uint256 remaining = periodFinish - block.timestamp;
-        uint256 leftover = remaining * rewardRate;
-        rewardRate = (_amount + leftover) / remaining;
-
-        uint256 balance = rewardToken.balanceOf(address(this));
-        require(rewardRate <= balance / remaining, "Staking: Provided reward too high");
-
-        lastUpdateTime = block.timestamp;
-
-        emit RewardAdded(_amount);
     }
 
     /// @notice modifier used to keep track of the dynamic rewards for user each time a deposit or withdrawal is made

@@ -114,54 +114,6 @@ describe("ERC721Staking", () => {
       ).to.be.revertedWith("Staking: Provided reward too high");
     });
 
-    it("should not allow to add reward amount if there is no active staking period", async () => {
-      await expect(
-        stakingContract.addRewardAmount(rewardsAmount)
-      ).to.be.revertedWith(
-        "Staking: Rewards period must be ongoing to add more rewards"
-      );
-    });
-
-    it("should not allow to add reward amount if the rewards amount is 0", async () => {
-      await stakingContract.startStakingPeriod(rewardsAmount, rewardsDuration);
-
-      await expect(stakingContract.addRewardAmount(0)).to.be.revertedWith(
-        "Staking: Amount must be greater than 0"
-      );
-    });
-
-    it("should not allow to add reward amount if the rewards amount is bigger than contract balance", async () => {
-      await stakingContract.startStakingPeriod(rewardsAmount, rewardsDuration);
-
-      await expect(
-        stakingContract.addRewardAmount(ethers.utils.parseEther("1"))
-      ).to.be.revertedWith("Staking: Provided reward too high");
-    });
-
-    it("should add reward to the total rewards", async () => {
-      await stakingContract.startStakingPeriod(rewardsAmount, rewardsDuration);
-      const rewardRate = await stakingContract.rewardRate();
-
-      await ethers.provider.send("evm_increaseTime", [rewardsDuration / 2]);
-      await ethers.provider.send("evm_mine", []);
-
-      await rewardToken.mint(stakingContract.address, rewardsAmount);
-
-      const tx = await stakingContract.addRewardAmount(rewardsAmount);
-      const receipt = await tx.wait();
-      const txTimestamp = (await ethers.provider.getBlock(receipt.blockNumber))
-        .timestamp;
-
-      const stakingTimeLeft = (await stakingContract.periodFinish()).sub(
-        txTimestamp
-      );
-
-      const leftoverRewards = stakingTimeLeft.mul(rewardRate);
-
-      expect(await stakingContract.rewardRate()).to.equal(
-        leftoverRewards.add(rewardsAmount).div(stakingTimeLeft)
-      );
-    });
   });
 
   describe("Staking", () => {
@@ -323,8 +275,8 @@ describe("ERC721Staking", () => {
 
     it("should claim rewards correctly for one total staker", async () => {
       await stakingContract
-      .connect(alice)
-      .stake(await nftCollection.tokensOfOwner(alice.address));
+        .connect(alice)
+        .stake(await nftCollection.tokensOfOwner(alice.address));
 
       await stakingContract.startStakingPeriod(rewardsAmount, rewardsDuration);
 
@@ -349,7 +301,7 @@ describe("ERC721Staking", () => {
       await stakingContract
         .connect(alice)
         .stake(await nftCollection.tokensOfOwner(alice.address));
-        
+
       await stakingContract.startStakingPeriod(rewardsAmount, rewardsDuration);
 
       expect(await stakingContract.getRewardPerToken()).to.equal((await stakingContract.rewardRate()).div(await stakingContract.totalStakedSupply()));
@@ -391,7 +343,7 @@ describe("ERC721Staking", () => {
 
       const bobStakeInfo = await stakingContract.userStakeInfo(bob.address);
       const bobRewards = bobStakeInfo[1];
-      
+
       expect(aliceRewards).to.be.within(rewardsForDuration.sub(rewardsErrorMargin).div(3), rewardsForDuration.add(rewardsErrorMargin).div(3));
       expect(bobRewards).to.be.within(rewardsForDuration.sub(rewardsErrorMargin).mul(2).div(3), rewardsForDuration.add(rewardsErrorMargin).mul(2).div(3));
     });
@@ -413,7 +365,7 @@ describe("ERC721Staking", () => {
       await stakingContract
         .connect(alice)
         .stake(tokensOfAlice);
-        
+
       await stakingContract.startStakingPeriod(rewardsAmount, rewardsDuration);
       const rewardsForDuration = await stakingContract.getRewardForDuration();
 
