@@ -2,8 +2,6 @@ import type { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 import chai, { expect } from "chai";
 import chaiAsPromised from "chai-as-promised";
 import { ethers } from "hardhat";
-import { BigNumber, ContractReceipt, ContractTransaction } from "ethers";
-import { BigNumberish } from "ethers";
 
 import { ERC721Staking, NFTCollection, RewardToken } from "../typechain-types";
 
