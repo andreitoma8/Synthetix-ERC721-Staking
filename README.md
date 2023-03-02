@@ -13,6 +13,8 @@ To celebrate 100 Stars on my first Open Soruce [NFT Staking Smart Contract](http
 
 The onwer of the contract can set up a period of time for the rewards distribution and the amount of rewards to be distributed. The rewards are distributed to the stakers based on the amount of NFTs they have staked and the amount of time they have staked them, so the APY is dynamic and depends on how many NFTs are staked at a given time.
 
+If you want to know more about how the contract works from a technical perspective and understand the math behind it, you can view [SmartContractProgrammer](https://twitter.com/ProgrammerSmart)'s [video series](https://youtu.be/rXuDelwHLoo) on the subject.
+
 # How to use
 
 ## Owner:
