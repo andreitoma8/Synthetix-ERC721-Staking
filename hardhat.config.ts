@@ -6,7 +6,7 @@ import "hardhat-contract-sizer";
 import "hardhat-gas-reporter";
 import "solidity-coverage";
 
-import { HardhatUserConfig } from "hardhat/config";
+import { HardhatUserConfig, task } from "hardhat/config";
 import * as dotenv from "dotenv";
 
 import "./tasks/deploy";
@@ -15,7 +15,7 @@ dotenv.config();
 
 const NETWORK_GAS_PRICE: Partial<Record<string, number>> = {
   // "mainnet": ethers.utils.parseUnits("10", "gwei").toNumber(),
-  // "goerli": ethers.utils.parseUnits("10", "gwei").toNumber(),
+  // "sepolia": ethers.utils.parseUnits("10", "gwei").toNumber(),
 };
 
 const config: HardhatUserConfig = {
@@ -52,35 +52,17 @@ const config: HardhatUserConfig = {
     localhost: {
       url: "http://127.0.0.1:8545",
     },
-    goerli: {
-      chainId: 5,
-      url: process.env.ETH_GOERLI_URL || "",
-      accounts:
-        process.env.PRIVATE_KEY !== undefined ? [process.env.PRIVATE_KEY] : [],
-      gasPrice: NETWORK_GAS_PRICE["goerli"] || "auto",
-      ...(process.env.FIREBLOCKS === "true" && {
-        fireblocks: {
-          privateKey:
-            process.env.ETH_GOERLI_FIREBLOCKS_API_PRIVATE_KEY_PATH || "",
-          apiKey: process.env.ETH_GOERLI_FIREBLOCKS_API_KEY || "",
-          vaultAccountIds: process.env.ETH_GOERLI_FIREBLOCKS_VAULT_ACCOUNT_IDS,
-        },
-      }),
+    sepolia: {
+      chainId: 11155111,
+      url: process.env.ETH_SEPOLIA_URL || "",
+      accounts: process.env.PRIVATE_KEY !== undefined ? [process.env.PRIVATE_KEY] : [],
+      gasPrice: NETWORK_GAS_PRICE["sepolia"] || "auto",
     },
     main: {
       chainId: 1,
       url: process.env.ETH_MAINNET_URL || "",
-      accounts:
-        process.env.PRIVATE_KEY !== undefined ? [process.env.PRIVATE_KEY] : [],
+      accounts: process.env.PRIVATE_KEY !== undefined ? [process.env.PRIVATE_KEY] : [],
       gasPrice: NETWORK_GAS_PRICE["mainnet"] || "auto",
-      ...(process.env.FIREBLOCKS === "true" && {
-        fireblocks: {
-          privateKey:
-            process.env.ETH_MAINNET_FIREBLOCKS_API_PRIVATE_KEY_PATH || "",
-          apiKey: process.env.ETH_MAINNET_FIREBLOCKS_API_KEY || "",
-          vaultAccountIds: process.env.ETH_MAINNET_FIREBLOCKS_VAULT_ACCOUNT_IDS,
-        },
-      }),
     },
   },
   gasReporter: {
@@ -98,7 +80,7 @@ const config: HardhatUserConfig = {
   etherscan: {
     apiKey: {
       mainnet: process.env.ETHERSCAN_API_KEY || "",
-      goerli: process.env.ETHERSCAN_API_KEY || "",
+      sepolia: process.env.ETHERSCAN_API_KEY || "",
     },
   },
 };

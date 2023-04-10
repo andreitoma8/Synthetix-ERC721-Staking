@@ -79,7 +79,7 @@ yarn hardhat test
 
 ## Available networks
 
--   Goerli: `--network goerli`
+-   Sepolia: `--network sepolia`
 -   Ethereum Mainnet: `--network main`
 
 ## Set a fixed gas price
@@ -89,7 +89,7 @@ To set a fixed gas price edit the `hardhat.config.ts` file, adding a gas price f
 ```typescript
 const NETWORK_GAS_PRICE: Partial<Record<string, number>> = {
     mainnet: ethers.utils.parseUnits("20", "gwei").toNumber(),
-    // "goerli": ethers.utils.parseUnits("10", "gwei").toNumber(),
+    // "sepolia": ethers.utils.parseUnits("10", "gwei").toNumber(),
 };
 ```
 
