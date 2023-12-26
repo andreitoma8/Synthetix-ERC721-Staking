@@ -5,7 +5,6 @@ import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/token/ERC721/utils/ERC721Holder.sol";
-import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 
 /// @author Andrei Toma
@@ -13,11 +12,11 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 /// @notice Staking Contract that uses the Synthetix Staking model to distribute ERC20 token rewards in a dynamic way,
 /// proportionally based on the amount of ERC721 tokens staked by each staker at any given time.
 
-contract ERC721Staking is ERC721Holder, ReentrancyGuard, Ownable {
+contract ERC721Staking is ERC721Holder, Ownable {
     using SafeERC20 for IERC20;
 
-    IERC20 public rewardToken;
-    IERC721 public nftCollection;
+    IERC20 public immutable rewardToken;
+    IERC721 public immutable nftCollection;
 
     uint256 public periodFinish;
     uint256 public rewardRate;
@@ -34,25 +33,28 @@ contract ERC721Staking is ERC721Holder, ReentrancyGuard, Ownable {
 
     /// @param _nftCollection the address of the ERC721 Contract
     /// @param _rewardToken the address of the ERC20 token used for rewards
-    constructor(address _nftCollection, address _rewardToken) {
-        nftCollection = IERC721(_nftCollection);
-        rewardToken = IERC20(_rewardToken);
+    constructor(IERC721 _nftCollection, IERC20 _rewardToken) {
+        nftCollection = _nftCollection;
+        rewardToken = _rewardToken;
     }
 
     /// @notice functon called by the users to Stake NFTs
     /// @param tokenIds array of Token IDs of the NFTs to be staked
     /// @dev the Token IDs have to be prevoiusly approved for transfer in the
     /// ERC721 contract with the address of this contract
-    function stake(uint256[] memory tokenIds) external updateReward(msg.sender) {
+    function stake(uint256[] calldata tokenIds) external updateReward(msg.sender) {
         require(tokenIds.length != 0, "Staking: No tokenIds provided");
 
         uint256 amount = tokenIds.length;
-        for (uint256 i = 0; i < amount; i += 1) {
+        for (uint256 i; i < amount;) {
             nftCollection.safeTransferFrom(msg.sender, address(this), tokenIds[i]);
 
             stakedAssets[tokenIds[i]] = msg.sender;
             tokensStaked[msg.sender].push(tokenIds[i]);
             tokenIdToIndex[tokenIds[i]] = tokensStaked[msg.sender].length - 1;
+            unchecked {
+                i++;
+            }
         }
         totalStakedSupply += amount;
 
@@ -61,16 +63,14 @@ contract ERC721Staking is ERC721Holder, ReentrancyGuard, Ownable {
 
     /// @notice function called by the user to Withdraw NFTs from staking
     /// @param tokenIds array of Token IDs of the NFTs to be withdrawn
-    function withdraw(uint256[] memory tokenIds) public nonReentrant updateReward(msg.sender) {
+    function withdraw(uint256[] memory tokenIds) public updateReward(msg.sender) {
         require(tokenIds.length != 0, "Staking: No tokenIds provided");
 
         uint256 amount = tokenIds.length;
-        for (uint256 i = 0; i < amount; i += 1) {
+        for (uint256 i; i < amount;) {
             require(stakedAssets[tokenIds[i]] == msg.sender, "Staking: Not the staker of the token");
 
-            nftCollection.safeTransferFrom(address(this), msg.sender, tokenIds[i]);
-
-            stakedAssets[tokenIds[i]] = address(0);
+            delete stakedAssets[tokenIds[i]];
 
             uint256[] storage userTokens = tokensStaked[msg.sender];
 
@@ -82,6 +82,12 @@ contract ERC721Staking is ERC721Holder, ReentrancyGuard, Ownable {
                 tokenIdToIndex[lastTokenId] = index;
             }
             userTokens.pop();
+
+            nftCollection.safeTransferFrom(address(this), msg.sender, tokenIds[i]);
+
+            unchecked {
+                i++;
+            }
         }
         totalStakedSupply -= amount;
 
@@ -89,10 +95,10 @@ contract ERC721Staking is ERC721Holder, ReentrancyGuard, Ownable {
     }
 
     /// @notice function called by the user to claim his accumulated rewards
-    function claimRewards() public nonReentrant updateReward(msg.sender) {
+    function claimRewards() public updateReward(msg.sender) {
         uint256 reward = rewards[msg.sender];
         if (reward > 0) {
-            rewards[msg.sender] = 0;
+            delete rewards[msg.sender];
 
             rewardToken.safeTransfer(msg.sender, reward);
 
